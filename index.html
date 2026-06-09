@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Two-Body Orbital Gravity Lab</title>
+    <!-- Tailwind CSS for sleek UI styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons for clean buttons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #030712;
+            overflow: hidden;
+        }
+        .font-mono-custom {
+            font-family: 'Fira Code', monospace;
+        }
+    </style>
+</head>
+<body class="text-gray-100 flex h-screen w-screen overflow-hidden select-none">
+
+    <!-- SIDEBAR: Adjust Variables & Readme -->
+    <div class="w-80 h-full bg-gray-950 border-r border-gray-900 flex flex-col shrink-0 overflow-y-auto p-6 space-y-6">
+        <div>
+            <h1 class="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-blue-500 flex items-center gap-2">
+                <i data-lucide="orbit" class="w-6 h-6 text-teal-400"></i> Gravity Lab
+            </h1>
+            <p class="text-xs text-gray-500 mt-1">Live math, vectors, and Newtonian mechanics visualization.</p>
+        </div>
+
+        <!-- Variable Controllers -->
+        <div class="space-y-5 border-t border-gray-900 pt-5">
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="sliders" class="w-4 h-4 text-teal-400"></i> Parameters
+            </h3>
+            
+            <div class="space-y-1.5">
+                <div class="flex justify-between text-xs">
+                    <span class="text-gray-400">Gravitational Constant (G)</span>
+                    <span id="val-g" class="text-teal-400 font-mono">0.50</span>
+                </div>
+                <input type="range" id="slider-g" min="0.1" max="1.5" step="0.05" value="0.5" class="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-teal-500">
+            </div>
+
+            <div class="space-y-1.5">
+                <div class="flex justify-between text-xs">
+                    <span class="text-gray-400">Supermassive Core Mass (M)</span>
+                    <span id="val-m" class="text-teal-400 font-mono">5000</span>
+                </div>
+                <input type="range" id="slider-m" min="1000" max="15000" step="500" value="5000" class="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-teal-500">
+            </div>
+
+            <div class="space-y-1.5">
+                <div class="flex justify-between text-xs">
+                    <span class="text-gray-400">Orbiting Body Mass (m)</span>
+                    <span id="val-mass-m" class="text-teal-400 font-mono">10</span>
+                </div>
+                <input type="range" id="slider-mass-m" min="1" max="100" step="1" value="10" class="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-teal-500">
+            </div>
+
+            <div class="bg-teal-950/20 p-3 rounded-lg border border-teal-950/60 text-xs text-gray-400">
+                <span class="font-bold text-teal-400 flex items-center gap-1.5"><i data-lucide="mouse-pointer-click" class="w-3.5 h-3.5"></i> Play!</span>
+                <p class="mt-1">Click and drag the orbiting planet on the canvas to throw it in a different direction and watch its velocity modify the orbit shape!</p>
+            </div>
+        </div>
+
+        <!-- Playback Speed -->
+        <div class="space-y-2 border-t border-gray-900 pt-4">
+            <div class="flex justify-between text-xs">
+                <span class="text-gray-400">Simulation Speed</span>
+                <span id="val-speed" class="text-teal-400 font-mono">1.0x</span>
+            </div>
+            <input type="range" id="slider-speed" min="0.1" max="2.0" step="0.1" value="1.0" class="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-teal-500">
+        </div>
+
+        <!-- Global Action Buttons -->
+        <div class="mt-auto pt-6 border-t border-gray-900 flex gap-2">
+            <button id="btn-pause" class="flex-1 py-2.5 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                <i data-lucide="pause" id="icon-pause" class="w-4 h-4 text-teal-400"></i> Pause
+            </button>
+            <button id="btn-reset" class="flex-1 py-2.5 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                <i data-lucide="rotate-ccw" class="w-4 h-4 text-teal-400"></i> Reset
+            </button>
+        </div>
+    </div>
+
+    <!-- MAIN LAB WORKSPACE -->
+    <div class="flex-grow h-full flex flex-col relative bg-[#020308]">
+        <!-- Top Navigation / Visual Controls -->
+        <div class="h-14 bg-gray-950/40 backdrop-blur-md border-b border-gray-900 flex items-center justify-between px-6 z-10">
+            <div class="flex items-center gap-3">
+                <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Experiment Mode:</span>
+                <span id="txt-mode-title" class="text-xs bg-teal-950/60 border border-teal-800 text-teal-300 px-3 py-1 rounded-full font-medium">Orbital Gravity</span>
+            </div>
+            
+            <div class="flex items-center gap-5">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <span class="text-xs text-gray-400">Draw Force Vectors</span>
+                    <input type="checkbox" id="chk-draw-force" checked class="rounded bg-gray-950 border-gray-800 text-teal-500 focus:ring-0 focus:ring-offset-0 w-4 h-4 cursor-pointer">
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <span class="text-xs text-gray-400">Draw Velocity Vectors</span>
+                    <input type="checkbox" id="chk-draw-velocity" checked class="rounded bg-gray-950 border-gray-800 text-emerald-500 focus:ring-0 focus:ring-offset-0 w-4 h-4 cursor-pointer">
+                </label>
+            </div>
+        </div>
+
+        <!-- Interactive Canvas Area -->
+        <div class="relative flex-grow min-h-0">
+            <canvas id="labCanvas" class="block w-full h-full cursor-crosshair"></canvas>
+            
+            <!-- Phase-Space / Interactive Energy Meter (Floating bottom-left) -->
+            <div class="absolute bottom-6 left-6 bg-gray-950/80 backdrop-blur-md border border-gray-900 p-4 rounded-xl shadow-2xl w-72 pointer-events-none transition-all duration-300">
+                <h4 class="text-xs font-bold text-gray-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <i data-lucide="trending-up" class="w-3.5 h-3.5 text-teal-400"></i> Energy Conservation (J)
+                </h4>
+                
+                <div class="space-y-2 text-xs">
+                    <div>
+                        <div class="flex justify-between text-[10px] text-gray-400 mb-1">
+                            <span>Kinetic Energy (K = ½mv²)</span>
+                            <span id="val-ke" class="font-mono text-emerald-400">0.00 J</span>
+                        </div>
+                        <div class="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden">
+                            <div id="bar-ke" class="bg-emerald-500 h-full transition-all duration-75" style="width: 50%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-[10px] text-gray-400 mb-1">
+                            <span>Potential Energy (U = -GMm/r)</span>
+                            <span id="val-pe" class="font-mono text-blue-400">0.00 J</span>
+                        </div>
+                        <div class="w-full bg-gray-900 h-1.5 rounded-full overflow-hidden">
+                            <div id="bar-pe" class="bg-blue-500 h-full transition-all duration-75" style="width: 50%"></div>
+                        </div>
+                    </div>
+                    <div class="border-t border-gray-900 pt-2 flex justify-between font-semibold">
+                        <span class="text-gray-300">Total Mechanical Energy (E)</span>
+                        <span id="val-total-energy" class="font-mono text-teal-400">0.00 J</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MATHEMATICAL DISCOVERY PANEL (Bottom) -->
+        <div class="h-60 bg-gray-950 border-t border-gray-900 p-6 flex gap-6 overflow-x-auto">
+            <!-- Equations Frame -->
+            <div class="w-1/2 min-w-[350px] border border-gray-900 bg-gray-950/50 rounded-xl p-4 flex flex-col justify-between">
+                <div>
+                    <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <i data-lucide="variable" class="w-4 h-4 text-teal-400"></i> Governing Physics Equation
+                    </h3>
+                    <div class="bg-gray-900/60 p-4 rounded-lg flex items-center justify-center text-center">
+                        <div id="math-equation" class="text-lg md:text-xl font-medium text-transparent bg-clip-text bg-gradient-to-r from-teal-300 to-blue-400 font-mono-custom tracking-wide">
+                            F = G · <div class="inline-block border-b border-teal-500 pb-0.5">M · m</div> / r²
+                        </div>
+                    </div>
+                </div>
+                <div class="text-xs text-gray-400 mt-2 bg-gray-900/30 p-2 rounded border border-gray-900/60">
+                    <span class="font-semibold text-gray-300">Physics Principle:</span> <span id="txt-explanation"></span>
+                </div>
+            </div>
+
+            <!-- Real-Time Calculation Block -->
+            <div class="w-1/2 min-w-[350px] border border-gray-900 bg-gray-950/50 rounded-xl p-4 flex flex-col justify-between">
+                <div>
+                    <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <i data-lucide="binary" class="w-4 h-4 text-teal-400"></i> Live Dynamic Calculation
+                    </h3>
+                    <div id="math-live-calc" class="bg-gray-900/40 border border-gray-900 p-3.5 rounded-lg text-xs font-mono-custom space-y-1.5 text-gray-300">
+                        <!-- Dynamic calculations updating in real time -->
+                    </div>
+                </div>
+                <div class="text-[11px] text-gray-500 mt-2">
+                    Variables are calculated at <span class="text-gray-400">60 steps per second</span> using Euler numerical integration.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN INTERACTIVE LABORATORY ENGINE -->
+    <script>
+        // Init Icons
+        lucide.createIcons();
+
+        const canvas = document.getElementById('labCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Global Sim States
+        let isPaused = false;
+        let globalSpeed = 1.0;
+        let drawForceVec = true;
+        let drawVelocityVec = true;
+
+        // Interactive control variables
+        let isDragging = false;
+
+        // Orbital Gravity Variables
+        let gConst = 0.5;
+        let sunMass = 5000;
+        let planetMass = 10;
+        let planet = { x: 0, y: 0, vx: 0, vy: 0, trail: [] };
+        let sun = { x: 0, y: 0 };
+
+        // Global Math panel explanation string
+        const gravityExp = "Newton's Law of Universal Gravitation states that any two masses attract each other with a force proportional to the product of their masses and inversely proportional to the square of their distance.";
+
+        // Handle Resize
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            resetExperimentStates();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        // Setup clean starting positions relative to canvas dimensions
+        function resetExperimentStates() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            sun.x = centerX;
+            sun.y = centerY;
+
+            // Circular orbit state initialization: v_orbital = sqrt(G * M / r)
+            const orbitalRadius = 160;
+            const orbitalVelocity = Math.sqrt((gConst * sunMass) / orbitalRadius);
+
+            planet.x = centerX;
+            planet.y = centerY - orbitalRadius;
+            planet.vx = orbitalVelocity;
+            planet.vy = 0;
+            planet.trail = [];
+        }
+
+        // Global Event listeners setup
+        function initEvents() {
+            // Slider listeners
+            document.getElementById('slider-g').addEventListener('input', (e) => {
+                gConst = parseFloat(e.target.value);
+                document.getElementById('val-g').innerText = gConst.toFixed(2);
+            });
+            document.getElementById('slider-m').addEventListener('input', (e) => {
+                sunMass = parseInt(e.target.value);
+                document.getElementById('val-m').innerText = sunMass;
+            });
+            document.getElementById('slider-mass-m').addEventListener('input', (e) => {
+                planetMass = parseInt(e.target.value);
+                document.getElementById('val-mass-m').innerText = planetMass;
+            });
+            document.getElementById('slider-speed').addEventListener('input', (e) => {
+                globalSpeed = parseFloat(e.target.value);
+                document.getElementById('val-speed').innerText = globalSpeed.toFixed(1) + "x";
+            });
+
+            // Toggle listeners
+            document.getElementById('chk-draw-force').addEventListener('change', (e) => {
+                drawForceVec = e.target.checked;
+            });
+            document.getElementById('chk-draw-velocity').addEventListener('change', (e) => {
+                drawVelocityVec = e.target.checked;
+            });
+
+            // Action Buttons
+            const pauseBtn = document.getElementById('btn-pause');
+            const pauseIcon = document.getElementById('icon-pause');
+            pauseBtn.addEventListener('click', () => {
+                isPaused = !isPaused;
+                if (isPaused) {
+                    pauseIcon.setAttribute('data-lucide', 'play');
+                    pauseBtn.innerHTML = `<i data-lucide="play" class="w-4 h-4 text-teal-400"></i> Resume`;
+                } else {
+                    pauseIcon.setAttribute('data-lucide', 'pause');
+                    pauseBtn.innerHTML = `<i data-lucide="pause" class="w-4 h-4 text-teal-400"></i> Pause`;
+                }
+                lucide.createIcons();
+            });
+
+            document.getElementById('btn-reset').addEventListener('click', () => {
+                resetExperimentStates();
+            });
+
+            // Dynamic mouse/touch grab triggers
+            const getCanvasCoords = (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                return {
+                    x: clientX - rect.left,
+                    y: clientY - rect.top
+                };
+            };
+
+            canvas.addEventListener('mousedown', (e) => {
+                const mouse = getCanvasCoords(e);
+                const dist = Math.hypot(mouse.x - planet.x, mouse.y - planet.y);
+                if (dist < 30) {
+                    isDragging = true;
+                }
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const mouse = getCanvasCoords(e);
+
+                // Update planet displacement & slingshot vector direction
+                planet.vx = (mouse.x - planet.x) * 0.1;
+                planet.vy = (mouse.y - planet.y) * 0.1;
+                planet.x = mouse.x;
+                planet.y = mouse.y;
+                planet.trail = [];
+            });
+
+            window.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+        }
+
+        // CORE MATHEMATICS EVALUATIONS & VECTOR DRAWING LOOP
+        function runPhysicsStep() {
+            if (isPaused || isDragging) return;
+
+            const dt = 0.1 * globalSpeed; // Integration step increment
+
+            // Compute Newton gravity forces
+            const dx = sun.x - planet.x;
+            const dy = sun.y - planet.y;
+            const dist = Math.hypot(dx, dy);
+
+            if (dist > 10) {
+                // Force = G * M * m / r^2
+                const fMag = (gConst * sunMass * planetMass) / (dist * dist);
+                const fx = fMag * (dx / dist);
+                const fy = fMag * (dy / dist);
+
+                // Accelerations: a = F / m -> a_x = Fx / m, a_y = Fy / m
+                const ax = fx / planetMass;
+                const ay = fy / planetMass;
+
+                // Euler integration steps
+                planet.vx += ax * dt;
+                planet.vy += ay * dt;
+                planet.x += planet.vx * dt;
+                planet.y += planet.vy * dt;
+
+                // Trail builder
+                planet.trail.push({ x: planet.x, y: planet.y });
+                if (planet.trail.length > 250) planet.trail.shift();
+            }
+        }
+
+        // Draw HUD Elements, vectors, and live mathematical feedback equations
+        function drawScene() {
+            // Dark space background rendering
+            ctx.fillStyle = '#020308';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Subtle coordinate grid background
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.015)';
+            ctx.lineWidth = 1;
+            const gridScale = 50;
+            for (let x = 0; x < canvas.width; x += gridScale) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += gridScale) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            }
+
+            drawGravityUI();
+        }
+
+        // Draw gravity mode details
+        function drawGravityUI() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            // Draw Sun Glow ACCRETION DISK
+            const sunGlow = ctx.createRadialGradient(sun.x, sun.y, 1, sun.x, sun.y, 40);
+            sunGlow.addColorStop(0, '#ffffff');
+            sunGlow.addColorStop(0.2, '#fbbf24');
+            sunGlow.addColorStop(0.6, 'rgba(245, 158, 11, 0.25)');
+            sunGlow.addColorStop(1, 'transparent');
+            ctx.beginPath(); ctx.arc(sun.x, sun.y, 40, 0, Math.PI * 2); ctx.fillStyle = sunGlow; ctx.fill();
+
+            // Draw Sun Core
+            ctx.beginPath(); ctx.arc(sun.x, sun.y, 14, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+
+            // Draw Orbital path line
+            if (planet.trail.length > 1) {
+                ctx.beginPath();
+                ctx.moveTo(planet.trail[0].x, planet.trail[0].y);
+                for (let i = 1; i < planet.trail.length; i++) {
+                    ctx.lineTo(planet.trail[i].x, planet.trail[i].y);
+                }
+                ctx.strokeStyle = 'rgba(20, 184, 166, 0.2)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+
+            // Draw Planet
+            const planetGlow = ctx.createRadialGradient(planet.x, planet.y, 1, planet.x, planet.y, 18);
+            planetGlow.addColorStop(0, '#38bdf8');
+            planetGlow.addColorStop(0.3, 'rgba(56, 189, 248, 0.4)');
+            planetGlow.addColorStop(1, 'transparent');
+            ctx.beginPath(); ctx.arc(planet.x, planet.y, 18, 0, Math.PI * 2); ctx.fillStyle = planetGlow; ctx.fill();
+            ctx.beginPath(); ctx.arc(planet.x, planet.y, 6, 0, Math.PI * 2); ctx.fillStyle = '#38bdf8'; ctx.fill();
+
+            // MATH CALCULATIONS OVERLAY
+            const dx = sun.x - planet.x;
+            const dy = sun.y - planet.y;
+            const r = Math.hypot(dx, dy);
+
+            // Newton Gravity math: F = G*M*m/r^2
+            const forceVal = (gConst * sunMass * planetMass) / (r * r);
+            const rawV = Math.hypot(planet.vx, planet.vy);
+
+            // Draw distance vector helper
+            ctx.beginPath();
+            ctx.moveTo(sun.x, sun.y);
+            ctx.lineTo(planet.x, planet.y);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Text distance tag
+            ctx.fillStyle = '#9ca3af';
+            ctx.font = '10px Fira Code';
+            ctx.fillText(`r = ${r.toFixed(1)} px`, (sun.x + planet.x) / 2 + 10, (sun.y + planet.y) / 2 - 10);
+
+            // Draw Force & Velocity kinematic vectors on canvas
+            if (drawForceVec) {
+                // Vector pointing to Sun (attraction)
+                drawArrow(planet.x, planet.y, planet.x + (dx / r) * (forceVal * 12), planet.y + (dy / r) * (forceVal * 12), '#f87171', 'F_gravity');
+            }
+            if (drawVelocityVec) {
+                // Vector tangent to path pointing forward
+                drawArrow(planet.x, planet.y, planet.x + planet.vx * 12, planet.y + planet.vy * 12, '#34d399', 'Velocity');
+            }
+
+            // Energy equations updates:
+            // K = 1/2 * m * v^2
+            const ke = 0.5 * planetMass * (rawV * rawV);
+            // U = -G * M * m / r
+            const pe = -(gConst * sunMass * planetMass) / r;
+            updateEnergyMeter(ke, pe);
+
+            // Physics text injects
+            document.getElementById('txt-explanation').innerText = gravityExp;
+
+            document.getElementById('math-live-calc').innerHTML = `
+                <div>G (Gravitational Constant) = <span class="text-teal-400">${gConst.toFixed(2)}</span></div>
+                <div>r (Distance)                = <span class="text-teal-400">${r.toFixed(1)} px</span></div>
+                <div>M (Sun mass)               = <span class="text-teal-400">${sunMass}</span>, m (Planet mass) = <span class="text-teal-400">${planetMass}</span></div>
+                <div class="border-t border-gray-900 pt-1.5 mt-1.5 text-rose-400">
+                    F_grav = (${gConst.toFixed(2)} * ${sunMass} * ${planetMass}) / (${r.toFixed(0)})² = <span class="font-bold">${forceVal.toFixed(3)} N</span>
+                </div>
+                <div class="text-emerald-400">
+                    V_planet = √(${planet.vx.toFixed(2)}² + ${planet.vy.toFixed(2)}²) = <span class="font-bold">${rawV.toFixed(2)} px/s</span>
+                </div>
+            `;
+        }
+
+        // Kinetic/Potential bar widget calculations updates
+        function updateEnergyMeter(ke, pe) {
+            const clampKE = Math.max(0, ke);
+            const clampPE = Math.max(0, -pe); // Express potential energy depth as absolute scale for visual progress bar comparison
+            const total = clampKE + pe;      // True total energy conservation
+
+            document.getElementById('val-ke').innerText = clampKE.toFixed(2) + " J";
+            document.getElementById('val-pe').innerText = pe.toFixed(2) + " J";
+            document.getElementById('val-total-energy').innerText = total.toFixed(2) + " J";
+
+            // Bar visual scales percentage logic
+            const maxVal = Math.max(45, clampKE + clampPE); // Base scale ceiling
+            const kePct = (clampKE / maxVal) * 100;
+            const pePct = (clampPE / maxVal) * 100;
+
+            document.getElementById('bar-ke').style.width = Math.min(100, kePct) + "%";
+            document.getElementById('bar-pe').style.width = Math.min(100, pePct) + "%";
+        }
+
+        // Canvas arrow lines helper (renders clean pointer vector directions)
+        function drawArrow(fromx, fromy, tox, toy, color, labelText) {
+            const distance = Math.hypot(tox - fromx, toy - fromy);
+            if (distance < 3) return;
+
+            ctx.beginPath();
+            ctx.moveTo(fromx, fromy);
+            ctx.lineTo(tox, toy);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2.0;
+            ctx.stroke();
+
+            // Arrow tip triangle head math
+            const angle = Math.atan2(toy - fromy, tox - fromx);
+            ctx.beginPath();
+            ctx.moveTo(tox, toy);
+            ctx.lineTo(tox - 7 * Math.cos(angle - Math.PI/6), toy - 7 * Math.sin(angle - Math.PI/6));
+            ctx.lineTo(tox - 7 * Math.cos(angle + Math.PI/6), toy - 7 * Math.sin(angle + Math.PI/6));
+            ctx.fillStyle = color;
+            ctx.fill();
+
+            // Text labels for direction indicator
+            if (labelText) {
+                ctx.fillStyle = '#9ca3af';
+                ctx.font = '9px Fira Code';
+                ctx.fillText(labelText, tox + 4, toy - 4);
+            }
+        }
+
+        // Simulation frame recursion loop
+        function runMainLoop() {
+            runPhysicsStep();
+            drawScene();
+            requestAnimationFrame(runMainLoop);
+        }
+
+        // Initialize setup triggers on DOM ready
+        window.onload = function () {
+            resizeCanvas();
+            initEvents();
+            runMainLoop();
+        };
+    </script>
+</body>
+</html>
